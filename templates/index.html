@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Code-2-Logic</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="96x96"
+      href="images/favicon-96x96.png"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <div id="elevated-container">
+        <div class="logo">
+          <img src="images/image.png" alt="Logo" />
+          <div class="name">Code-2-Logic</div>
+        </div>
+        <div class="buttons">
+          <button id="clear-history-button">Clear Chat History</button>
+          <button id="fetch-history-button">Fetch Chat History</button>
+        </div>
+      </div>
+      <div id="chat-container">
+        <div id="greeting-text"></div>
+        <div id="chat-messages-container">
+          <div id="chat-messages" aria-live="polite"></div>
+        </div>
+        <div id="user-input">
+          <input
+            type="text"
+            id="message-input"
+            placeholder="Type your message..."
+            aria-label="Type your message"
+          />
+          <button id="send-button" aria-label="Send">Send</button>
+          <button id="import-button">Import</button>
+          <button id="flowchart-button">Flow Chart</button>
+          <button id="run-python-button">Code-2-Flow</button>
+        </div>
+        
+      </div>
+    </div>
+    <script src="js/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowchart/1.17.1/flowchart.min.js"></script>
+  </body>
+</html>

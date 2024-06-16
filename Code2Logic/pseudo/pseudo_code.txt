@@ -1,0 +1,22 @@
+INPUT str
+
+IF isPalindrome(str) THEN
+OUTPUT str + " is a palindrome."
+ELSE
+OUTPUT str + " is not a palindrome."
+ENDIF
+
+FUNCTION isPalindrome(str)
+left = 0
+right = str.length() - 1
+
+WHILE left < right DO
+IF str.charAt(left) != str.charAt(right) THEN
+RETURN false
+ENDIF
+left = left + 1
+right = right - 1
+ENDWHILE
+
+RETURN true
+ENDFUNCTION

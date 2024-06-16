@@ -1,0 +1,101 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
+from xgboost import XGBRegressor
+from sklearn.model_selection import cross_val_predict, KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+from sklearn.metrics import mean_absolute_error
+
+# Load datasets
+train_df = pd.read_csv("training_dataset.csv")
+test_df = pd.read_csv("testing_dataset.csv")
+
+# Data Preprocessing
+train_df['ConfirmedIndianNational'] = train_df['ConfirmedIndianNational'].replace('-', 0)
+train_df['ConfirmedForeignNational'] = train_df['ConfirmedForeignNational'].replace('-', 0)
+test_df['ConfirmedIndianNational'] = test_df['ConfirmedIndianNational'].replace('-', 0)
+test_df['ConfirmedForeignNational'] = test_df['ConfirmedForeignNational'].replace('-', 0)
+
+train_df['ConfirmedIndianNational'] = train_df['ConfirmedIndianNational'].astype(int)
+train_df['ConfirmedForeignNational'] = train_df['ConfirmedForeignNational'].astype(int)
+test_df['ConfirmedIndianNational'] = test_df['ConfirmedIndianNational'].astype(int)
+test_df['ConfirmedForeignNational'] = test_df['ConfirmedForeignNational'].astype(int)
+
+# Convert "Date" column to datetime format
+train_df['Date'] = pd.to_datetime(train_df['Date'])
+test_df['Date'] = pd.to_datetime(test_df['Date'])
+
+# Convert "Time" column to numeric
+train_df['Time'] = pd.to_datetime(train_df['Time'], format='%I:%M %p').dt.hour
+test_df['Time'] = pd.to_datetime(test_df['Time'], format='%I:%M %p').dt.hour
+
+# Convert "State/UnionTerritory" column to numeric
+state_mapping = {state: idx for idx, state in enumerate(train_df['State/UnionTerritory'].unique())}
+train_df['State/UnionTerritory'] = train_df['State/UnionTerritory'].map(state_mapping)
+test_df['State/UnionTerritory'] = test_df['State/UnionTerritory'].map(state_mapping)
+
+# Feature Engineering
+train_df['CasesPerCapita'] = train_df['Confirmed'] / (train_df['PopulationDensityPerSqKm'] + 1)  # Avoid division by zero
+test_df['CasesPerCapita'] = test_df['Confirmed'] / (test_df['PopulationDensityPerSqKm'] + 1)  # Avoid division by zero
+train_df['CasesPerDay'] = train_df.groupby('State/UnionTerritory')['Confirmed'].diff().fillna(0)
+test_df['CasesPerDay'] = test_df.groupby('State/UnionTerritory')['Confirmed'].diff().fillna(0)
+
+# Handling infinity or too large values
+train_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+test_df.replace([np.inf, -np.inf], np.nan, inplace=True)
+train_df.fillna(train_df.mean(), inplace=True)
+test_df.fillna(test_df.mean(), inplace=True)
+
+# Feature selection
+features = ['Cured', 'Confirmed', 'OxygenTanks', 'PopulationDensityPerSqKm', 'CasesPerCapita', 'CasesPerDay', 'Time', 'State/UnionTerritory']
+X = train_df[features]
+y = train_df['Deaths']
+
+X_test = test_df[features]
+
+# Base models
+rf_model = RandomForestRegressor(n_estimators=500, random_state=42)
+gb_model = GradientBoostingRegressor(n_estimators=500, random_state=42)
+xgb_model = XGBRegressor(n_estimators=500, random_state=42, objective='reg:squarederror')
+et_model = ExtraTreesRegressor(n_estimators=500, random_state=42)
+
+# Stacking
+base_models = [('rf', rf_model), ('gb', gb_model), ('xgb', xgb_model), ('et', et_model)]
+meta_model = RandomForestRegressor(n_estimators=500, random_state=42)
+
+stacking_pipeline = make_pipeline(StandardScaler(), meta_model)
+
+meta_features = np.zeros((X.shape[0], len(base_models)))
+meta_test_features = np.zeros((X_test.shape[0], len(base_models)))
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+for train_index, val_index in kf.split(X):
+    X_train, X_val = X.iloc[train_index], X.iloc[val_index]
+    y_train, y_val = y.iloc[train_index], y.iloc[val_index]
+    
+    for i, (name, model) in enumerate(base_models):
+        model.fit(X_train, y_train)
+        meta_features[val_index, i] = model.predict(X_val)
+        meta_test_features[:, i] += model.predict(X_test) / kf.n_splits
+
+stacking_pipeline.fit(meta_features, y)
+stacked_predictions = stacking_pipeline.predict(meta_test_features)
+
+# Ensure predictions are non-negative
+stacked_predictions = np.maximum(stacked_predictions, 0)
+
+# Save predictions to submission file
+submission_df = test_df[['Sno']].copy()
+submission_df['Deaths'] = stacked_predictions.round().astype(int)
+submission_df.to_csv("submission.csv", index=False)
+
+# Calculate MMAPE
+def modified_mape(y_true, y_pred):
+    abs_error = np.abs(y_true - y_pred)
+    denominator = np.where(y_true == 0, 1, y_true)
+    return np.sum(abs_error / denominator * (1 + abs_error / denominator)) / len(y_true)
+
+mmape = modified_mape(y_true=test_df['Deaths'], y_pred=submission_df['Deaths'].values)
+print("Modified Mean Absolute Percentage Error (MMAPE):", mmape)

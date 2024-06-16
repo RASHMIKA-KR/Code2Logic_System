@@ -1,0 +1,24 @@
+INPUT number
+
+# Function to check if a number is an Armstrong number
+FUNCTION isArmstrongNumber(number)
+  # Calculate the number of digits
+  numDigits = length(string(number))
+  
+  # Calculate the sum of digits raised to the power of numDigits
+  total = 0
+  FOR i <- 1 TO numDigits
+    digit = integer(substring(string(number), i, 1))
+    total = total + digit ^ numDigits
+  NEXT i
+  
+  # Check if the total is equal to the original number
+  RETURN total = number
+ENDFUNCTION
+
+# Test the function
+IF isArmstrongNumber(number) THEN
+  OUTPUT string(number) + " is an Armstrong number"
+ELSE
+  OUTPUT string(number) + " is not an Armstrong number"
+ENDIF 
